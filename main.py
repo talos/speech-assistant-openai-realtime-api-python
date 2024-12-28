@@ -3,23 +3,28 @@ import json
 import base64
 import asyncio
 import websockets
-from fastapi import FastAPI, WebSocket, Request
+from fastapi import FastAPI, WebSocket, Request, Depends
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.websockets import WebSocketDisconnect
 from twilio.twiml.voice_response import VoiceResponse, Connect, Say, Stream
 from dotenv import load_dotenv
+from googleapiclient.discovery import build
+from google.oauth2.service_account import Credentials
+import io
+from googleapiclient.http import MediaIoBaseDownload
 
 load_dotenv()
 
 # Configuration
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 PORT = int(os.getenv('PORT', 5050))
-SYSTEM_MESSAGE = (
-    "You are a helpful and bubbly AI assistant who loves to chat about "
-    "anything the user is interested in and is prepared to offer them facts. "
-    "You have a penchant for dad jokes, owl jokes, and rickrolling – subtly. "
-    "Always stay positive, but work in a joke when appropriate."
-)
+# SYSTEM_MESSAGE = (
+#     "You are a helpful and bubbly AI assistant who loves to chat about "
+#     "anything the user is interested in and is prepared to offer them facts. "
+#     "You have a penchant for dad jokes, owl jokes, and rickrolling – subtly. "
+#     "Always stay positive, but work in a joke when appropriate."
+# )
+SYSTEM_MESSAGE = None
 VOICE = 'alloy'
 LOG_EVENT_TYPES = [
     'error', 'response.content.done', 'rate_limits.updated',
@@ -33,6 +38,11 @@ app = FastAPI()
 
 if not OPENAI_API_KEY:
     raise ValueError('Missing the OpenAI API key. Please set it in the .env file.')
+
+def get_instructions():
+    if SYSTEM_MESSAGE is None:
+        raise ValueError("The SYSTEM_MESSAGE has not been initialized yet!")
+    return SYSTEM_MESSAGE
 
 @app.get("/", response_class=JSONResponse)
 async def index_page():
@@ -53,19 +63,20 @@ async def handle_incoming_call(request: Request):
     return HTMLResponse(content=str(response), media_type="application/xml")
 
 @app.websocket("/media-stream")
-async def handle_media_stream(websocket: WebSocket):
+async def handle_media_stream(websocket: WebSocket, instructions=Depends(get_instructions)):
     """Handle WebSocket connections between Twilio and OpenAI."""
     print("Client connected")
     await websocket.accept()
 
     async with websockets.connect(
-        'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01',
+        # 'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01',
+        'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17',
         extra_headers={
             "Authorization": f"Bearer {OPENAI_API_KEY}",
             "OpenAI-Beta": "realtime=v1"
         }
     ) as openai_ws:
-        await initialize_session(openai_ws)
+        await initialize_session(openai_ws, instructions)
 
         # Connection specific state
         stream_sid = None
@@ -202,7 +213,7 @@ async def send_initial_conversation_item(openai_ws):
     await openai_ws.send(json.dumps({"type": "response.create"}))
 
 
-async def initialize_session(openai_ws):
+async def initialize_session(openai_ws, instructions):
     """Control initial session with OpenAI."""
     session_update = {
         "type": "session.update",
@@ -211,7 +222,7 @@ async def initialize_session(openai_ws):
             "input_audio_format": "g711_ulaw",
             "output_audio_format": "g711_ulaw",
             "voice": VOICE,
-            "instructions": SYSTEM_MESSAGE,
+            "instructions": instructions,
             "modalities": ["text", "audio"],
             "temperature": 0.8,
         }
@@ -222,6 +233,57 @@ async def initialize_session(openai_ws):
     # Uncomment the next line to have the AI speak first
     # await send_initial_conversation_item(openai_ws)
 
+def authenticate_with_env():
+    """Authenticate using environment variables."""
+    scopes = ['https://www.googleapis.com/auth/drive']
+    client_email = os.getenv('GOOGLE_CLIENT_EMAIL')
+    private_key = os.getenv('GOOGLE_PRIVATE_KEY').replace('\\n', '\n')  # Handle newline escape in env
+    project_id = os.getenv('GOOGLE_PROJECT_ID')
+
+    if not all([client_email, private_key, project_id]):
+        raise EnvironmentError("Missing one or more required environment variables: GOOGLE_CLIENT_EMAIL, GOOGLE_PRIVATE_KEY, GOOGLE_PROJECT_ID")
+
+    credentials = Credentials.from_service_account_info(
+        {
+            "type": "service_account",
+            "project_id": project_id,
+            "private_key_id": "chat_pkey_id",  # Private key ID is optional for manual setup
+            "private_key": private_key,
+            "client_email": client_email,
+            "client_id": "chat_pkey_client_id",  # Optional
+            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+            "token_uri": "https://oauth2.googleapis.com/token",
+            "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+            "client_x509_cert_url": f"https://www.googleapis.com/robot/v1/metadata/x509/{client_email}"
+        },
+        scopes=scopes
+    )
+    return build('drive', 'v3', credentials=credentials)
+
+def get_file_as_markdown(service, file_id):
+    """Retrieve a Google Docs file as Markdown and return it as a string."""
+    request = service.files().export_media(fileId=file_id, mimeType='text/markdown')
+    markdown_content = io.BytesIO()
+    downloader = MediaIoBaseDownload(markdown_content, request)
+    done = False
+    while not done:
+        status, done = downloader.next_chunk()
+        print(f"Download {int(status.progress() * 100)}%.")
+
+    # Decode the content from bytes to string
+    return markdown_content.getvalue().decode('utf-8')
+
 if __name__ == "__main__":
+    file_id = os.getenv('GOOGLE_FILE_ID')
+
+    # Authenticate and build the service
+    service = authenticate_with_env()
+
+    # Get the file content as Markdown
+    #global SYSTEM_MESSAGE
+    SYSTEM_MESSAGE = get_file_as_markdown(service, file_id)
+    print("File content as Markdown:")
+    print(SYSTEM_MESSAGE)
+
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=PORT)
