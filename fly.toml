@@ -1,0 +1,25 @@
+# fly.toml app configuration file generated for openai-realtime-python-dry-resonance-4469 on 2024-12-21T21:50:47-05:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'speech-assistant-openai-realtime-api-python'
+primary_region = 'ewr'
+
+[build]
+
+[http_service]
+  internal_port = 5050
+  force_https = false
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+  # processes = ['web']
+
+# [processes]
+#   web = 'python -m realtime_agent.main server'
+
+[[vm]]
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 1
