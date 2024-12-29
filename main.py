@@ -220,8 +220,7 @@ async def initialize_session(openai_ws, instructions):
             "input_audio_format": "g711_ulaw",
             "output_audio_format": "g711_ulaw",
             "voice": VOICE,
-            #"instructions": instructions,
-            "instructions": "test short instructions",
+            "instructions": instructions,
             "modalities": ["text", "audio"],
             # Otherwise, input audio won't be transcribed as text
             "input_audio_transcription": { "model": "whisper-1" },
