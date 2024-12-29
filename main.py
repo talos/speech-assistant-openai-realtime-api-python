@@ -67,7 +67,6 @@ async def handle_media_stream(websocket: WebSocket, instructions=Depends(get_ins
     await websocket.accept()
 
     async with websockets.connect(
-        # 'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01',
         'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17',
         extra_headers={
             "Authorization": f"Bearer {OPENAI_API_KEY}",
@@ -220,8 +219,11 @@ async def initialize_session(openai_ws, instructions):
             "input_audio_format": "g711_ulaw",
             "output_audio_format": "g711_ulaw",
             "voice": VOICE,
-            "instructions": instructions,
+            #"instructions": instructions,
+            "instructions": "test short instructions",
             "modalities": ["text", "audio"],
+            # Otherwise, input audio won't be transcribed as text
+            "input_audio_transcription": { "model": "whisper-1" },
             "temperature": 0.8,
         }
     }
