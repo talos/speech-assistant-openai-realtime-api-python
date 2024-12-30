@@ -82,10 +82,11 @@ async def handle_media_stream(websocket: WebSocket, instructions=Depends(get_ins
         last_assistant_item = None
         mark_queue = []
         response_start_timestamp_twilio = None
+        transcription = []
 
         async def receive_from_twilio():
             """Receive audio data from Twilio and send it to the OpenAI Realtime API."""
-            nonlocal stream_sid, latest_media_timestamp
+            nonlocal stream_sid, latest_media_timestamp, transcription
             try:
                 async for message in websocket.iter_text():
                     data = json.loads(message)
@@ -105,6 +106,8 @@ async def handle_media_stream(websocket: WebSocket, instructions=Depends(get_ins
                     elif data['event'] == 'mark':
                         if mark_queue:
                             mark_queue.pop(0)
+                    elif data['event'] == 'stop':
+                        print("Twilio 'stop' transcription", transcription)
             except WebSocketDisconnect:
                 print("Client disconnected.")
                 if openai_ws.open:
@@ -112,7 +115,7 @@ async def handle_media_stream(websocket: WebSocket, instructions=Depends(get_ins
 
         async def send_to_twilio():
             """Receive events from the OpenAI Realtime API, send audio back to Twilio."""
-            nonlocal stream_sid, last_assistant_item, response_start_timestamp_twilio
+            nonlocal stream_sid, last_assistant_item, response_start_timestamp_twilio, transcription
             try:
                 async for openai_message in openai_ws:
                     response = json.loads(openai_message)
@@ -147,6 +150,13 @@ async def handle_media_stream(websocket: WebSocket, instructions=Depends(get_ins
                         if last_assistant_item:
                             print(f"Interrupting response with id: {last_assistant_item}")
                             await handle_speech_started_event()
+
+                    # Handle transcriptions
+                    if response.get('type') == 'conversation.item.input_audio_transcription.completed' and 'transcript' in response:
+                        transcription.append({ 'role': 'user', 'transcript': response['transcript'] })
+                    if response.get('type') == 'response.done' and response.get('response')['object'] == 'realtime.response' and response.get('response')['status'] == 'completed' and 'transcript' in response.get('response').get('output')[0].get('content')[0]:
+                        transcription.append({ 'role': 'assistant', 'transcript': response.get('response').get('output')[0].get('content')[0]['transcript'] })
+
             except Exception as e:
                 print(f"Error in send_to_twilio: {e}")
 
