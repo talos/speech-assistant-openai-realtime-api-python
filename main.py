@@ -108,6 +108,7 @@ async def handle_media_stream(websocket: WebSocket, instructions=Depends(get_ins
                             mark_queue.pop(0)
                     elif data['event'] == 'stop':
                         print("Twilio 'stop' transcription", transcription)
+                        await(send_summary_item(openai_ws))
             except WebSocketDisconnect:
                 print("Client disconnected.")
                 if openai_ws.open:
@@ -222,6 +223,28 @@ async def send_initial_conversation_item(openai_ws):
     await openai_ws.send(json.dumps(initial_conversation_item))
     await openai_ws.send(json.dumps({"type": "response.create"}))
 
+async def send_summary_item(openai_ws):
+    """Summarize conversation"""
+    session_update = { "type": "session.update", "session": { "modalities": ["text"] } }
+    print('Sending session update for summary:', json.dumps(session_update))
+
+    await openai_ws.send(json.dumps(session_update))
+    summary_item = {
+        "type": "conversation.item.create",
+        "item": {
+            "type": "message",
+            "role": "user",
+            "content": [
+                {
+                    "type": "input_text",
+                    "text": "Provide a transcript of the entire conversation, notating yourself as 'Donna:' and the user as 'User:'. Provide a commentary on top about anything that was edited or removed. "
+                }
+            ]
+        }
+    }
+    await openai_ws.send(json.dumps(summary_item))
+    await openai_ws.send(json.dumps({"type": "response.create"}))
+    print('Sent summary item', summary_item)
 
 async def initialize_session(openai_ws, instructions):
     """Control initial session with OpenAI."""
@@ -294,8 +317,8 @@ if __name__ == "__main__":
     # Get the file content as Markdown
     #global SYSTEM_MESSAGE
     SYSTEM_MESSAGE = get_file_as_markdown(service, file_id)
-    print("File content as Markdown:")
-    print(SYSTEM_MESSAGE)
+    #print("File content as Markdown:")
+    #print(SYSTEM_MESSAGE)
 
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=PORT)
