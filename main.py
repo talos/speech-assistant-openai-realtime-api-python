@@ -154,8 +154,10 @@ async def handle_media_stream(websocket: WebSocket, instructions=Depends(get_ins
                     # Handle transcriptions
                     if response.get('type') == 'conversation.item.input_audio_transcription.completed' and 'transcript' in response:
                         transcription.append({ 'role': 'user', 'transcript': response['transcript'] })
+                        print('transcription', transcription)
                     if response.get('type') == 'response.done' and response.get('response')['object'] == 'realtime.response' and response.get('response')['status'] == 'completed' and 'transcript' in response.get('response').get('output')[0].get('content')[0]:
                         transcription.append({ 'role': 'assistant', 'transcript': response.get('response').get('output')[0].get('content')[0]['transcript'] })
+                        print('transcription', transcription)
 
             except Exception as e:
                 print(f"Error in send_to_twilio: {e}")
