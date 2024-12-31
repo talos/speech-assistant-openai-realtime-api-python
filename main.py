@@ -108,7 +108,9 @@ async def handle_media_stream(websocket: WebSocket, instructions=Depends(get_ins
                             mark_queue.pop(0)
                     elif data['event'] == 'stop':
                         print("Twilio 'stop' transcription", transcription)
-                        await(send_summary_item(openai_ws))
+                        await send_summary_item(openai_ws)
+                    else:
+                        print('other twilio message', data)
             except WebSocketDisconnect:
                 print("Client disconnected.")
                 if openai_ws.open:
