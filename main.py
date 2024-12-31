@@ -90,7 +90,7 @@ async def handle_media_stream(websocket: WebSocket, instructions=Depends(get_ins
             try:
                 async for message in websocket.iter_text():
                     data = json.loads(message)
-                    print('twilio message', data)
+                    # print('twilio message', data)
                     if data['event'] == 'media' and openai_ws.open:
                         latest_media_timestamp = int(data['media']['timestamp'])
                         audio_append = {
@@ -109,10 +109,10 @@ async def handle_media_stream(websocket: WebSocket, instructions=Depends(get_ins
                             mark_queue.pop(0)
                     elif data['event'] == 'stop':
                         print("Twilio 'stop' transcription", transcription)
-                        await send_summary_item(openai_ws)
+                        #await send_summary_item(openai_ws)
             except WebSocketDisconnect:
                 print("Client disconnected.")
-                await send_summary_item(openai_ws)
+                #await send_summary_item(openai_ws)
                 if openai_ws.open:
                     await openai_ws.close()
 
@@ -158,13 +158,14 @@ async def handle_media_stream(websocket: WebSocket, instructions=Depends(get_ins
                     if response.get('type') == 'conversation.item.input_audio_transcription.completed' and 'transcript' in response:
                         transcription.append({ 'role': 'user', 'transcript': response['transcript'] })
                         print('transcription', transcription)
+
                     if response.get('type') == 'response.done' and response.get('response')['object'] == 'realtime.response' and response.get('response')['status'] == 'completed' and 'transcript' in response.get('response').get('output')[0].get('content')[0]:
                         transcription.append({ 'role': 'assistant', 'transcript': response.get('response').get('output')[0].get('content')[0]['transcript'] })
                         print('transcription', transcription)
 
             except Exception as e:
                 print(f"Error in send_to_twilio: {e}")
-                await send_summary_item(openai_ws)
+                #await send_summary_item(openai_ws)
 
         async def handle_speech_started_event():
             """Handle interruption when the caller's speech starts."""
