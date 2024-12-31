@@ -62,11 +62,9 @@ async def handle_incoming_call(request: Request):
     phone_from = request.query_params['From']
     print('call FROM', phone_from)
     connect = Connect()
-    connect.stream(url=f'wss://{host}/media-stream',
-                   parameter1_name="foo",
-                   parameter1_value="bar",
-                   parameter2_name="From",
-                   parameter2_value=phone_from)
+    stream = connect.stream(url=f'wss://{host}/media-stream')
+    stream.parameter(name="foo", value='bar')
+    stream.parameter(name="From", value=phone_from)
     response.append(connect)
     return HTMLResponse(content=str(response), media_type="application/xml")
 
