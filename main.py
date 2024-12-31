@@ -354,7 +354,7 @@ def get_file_as_markdown(service, file_id):
 def send_webhook(from_phone, transcription, ai_generated_summary):
     webhook_data = {
         'Incoming phone number': from_phone,
-        'Transcript': transcription,
+        'Transcript': json.dumps(transcription),
         'AI generated summary': ai_generated_summary,
         'Date time stamp': datetime.now().isoformat()
     }
