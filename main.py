@@ -57,6 +57,7 @@ async def handle_incoming_call(request: Request):
     response.say("O.K.")
     host = request.url.hostname
     print('handle_incoming_call', request)
+    print('handle_incoming_call form', request.form)
     connect = Connect()
     connect.stream(url=f'wss://{host}/media-stream')
     response.append(connect)
