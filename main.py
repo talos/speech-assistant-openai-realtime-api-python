@@ -112,6 +112,7 @@ async def handle_media_stream(websocket: WebSocket, instructions=Depends(get_ins
                         await send_summary_item(openai_ws)
             except WebSocketDisconnect:
                 print("Client disconnected.")
+                await send_summary_item(openai_ws)
                 if openai_ws.open:
                     await openai_ws.close()
 
@@ -163,6 +164,7 @@ async def handle_media_stream(websocket: WebSocket, instructions=Depends(get_ins
 
             except Exception as e:
                 print(f"Error in send_to_twilio: {e}")
+                await send_summary_item(openai_ws)
 
         async def handle_speech_started_event():
             """Handle interruption when the caller's speech starts."""
