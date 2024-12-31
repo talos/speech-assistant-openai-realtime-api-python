@@ -115,6 +115,8 @@ async def handle_media_stream(websocket: WebSocket, instructions=Depends(get_ins
                 #await send_summary_item(openai_ws)
                 if openai_ws.open:
                     await openai_ws.close()
+            except Exception as e:
+                print('Other exception from twilio', e)
 
         async def send_to_twilio():
             """Receive events from the OpenAI Realtime API, send audio back to Twilio."""
@@ -162,6 +164,9 @@ async def handle_media_stream(websocket: WebSocket, instructions=Depends(get_ins
                     if response.get('type') == 'response.done' and response.get('response')['object'] == 'realtime.response' and response.get('response')['status'] == 'completed' and 'transcript' in response.get('response').get('output')[0].get('content')[0]:
                         transcription.append({ 'role': 'assistant', 'transcript': response.get('response').get('output')[0].get('content')[0]['transcript'] })
                         print('transcription', transcription)
+
+                    # if response.get('type') == 'response.done' and response.get('response')['object'] == 'realtime.response' and response.get('response')['status'] == 'cancelled':
+                    #     print('response.done cancelled', response)
 
             except Exception as e:
                 print(f"Error in send_to_twilio: {e}")
