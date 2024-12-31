@@ -71,7 +71,9 @@ async def handle_media_stream(websocket: WebSocket, instructions=Depends(get_ins
     print("Client connected")
     await websocket.accept()
 
-    print('websocket.query_params', websocket.query_params)
+    print(f'websocket.query_params {websocket.query_params}')
+    print(f'websocket.query_params foo',  websocket.query_params['foo'])
+    print(f'websocket.query_params From',  websocket.query_params['From'])
 
     async with websockets.connect(
         'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17',
@@ -89,6 +91,7 @@ async def handle_media_stream(websocket: WebSocket, instructions=Depends(get_ins
         mark_queue = []
         response_start_timestamp_twilio = None
         transcription = []
+        ai_generated_summary = ''
         twilio_disconnected = False
         awaiting_final_transcript = False
 
@@ -131,7 +134,7 @@ async def handle_media_stream(websocket: WebSocket, instructions=Depends(get_ins
 
         async def send_to_twilio():
             """Receive events from the OpenAI Realtime API, send audio back to Twilio."""
-            nonlocal stream_sid, last_assistant_item, response_start_timestamp_twilio, transcription, twilio_disconnected, awaiting_final_transcript
+            nonlocal stream_sid, last_assistant_item, response_start_timestamp_twilio, transcription, twilio_disconnected, awaiting_final_transcript, ai_generated_summary
             try:
                 async for openai_message in openai_ws:
                     response = json.loads(openai_message)
@@ -183,7 +186,9 @@ async def handle_media_stream(websocket: WebSocket, instructions=Depends(get_ins
 
                     if response.get('type') == 'response.done' and twilio_disconnected and awaiting_final_transcript:
                         print('response done and twilio disconnected and awaiting final transcript', response)
-                        print('AI generated summary', response.get('response').get('output')[0].get('content')[0]['text'])
+                        ai_generated_summary = response.get('response').get('output')[0].get('content')[0]['text']
+                        print('AI generated summary', ai_generated_summary)
+
                         await openai_ws.close()
 
                     # if response.get('type') == 'response.done' and response.get('response')['object'] == 'realtime.response' and response.get('response')['status'] == 'cancelled':
@@ -237,6 +242,8 @@ async def handle_media_stream(websocket: WebSocket, instructions=Depends(get_ins
             await asyncio.gather(receive_from_twilio(), send_to_twilio())
         except Exception as e:
             print('Error from asyncio.gather', e)
+
+        send_webhook('some number', { 'transcription': transcription, 'ai generated summary': ai_generated_summary })
 
 async def send_initial_conversation_item(openai_ws):
     """Send initial conversation item if AI talks first."""
@@ -341,8 +348,8 @@ def get_file_as_markdown(service, file_id):
     # Decode the content from bytes to string
     return markdown_content.getvalue().decode('utf-8')
 
-def send_webhook():
-    pass
+def send_webhook(from_phone, transcription):
+    print('sent webhook', from_phone, transcription)
 
 if __name__ == "__main__":
     file_id = os.getenv('GOOGLE_FILE_ID')
