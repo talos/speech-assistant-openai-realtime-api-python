@@ -13,6 +13,7 @@ from google.oauth2.service_account import Credentials
 import io
 from googleapiclient.http import MediaIoBaseDownload
 import requests
+from datetime import datetime
 
 load_dotenv()
 
@@ -113,7 +114,7 @@ async def handle_media_stream(websocket: WebSocket, instructions=Depends(get_ins
                         await openai_ws.send(json.dumps(audio_append))
                     elif data['event'] == 'start':
                         stream_sid = data['start']['streamSid']
-                        parameters = data.get("customParameters", {})
+                        parameters = data['start']['customParameters']
                         foo = parameters.get("foo")
                         phone_from = parameters.get("From")
                         print(f"Incoming stream has started {stream_sid}, {parameters}")
@@ -248,7 +249,7 @@ async def handle_media_stream(websocket: WebSocket, instructions=Depends(get_ins
         except Exception as e:
             print('Error from asyncio.gather', e)
 
-        send_webhook('some number', { 'transcription': transcription, 'ai generated summary': ai_generated_summary })
+        send_webhook('some number', transcription, ai_generated_summary)
 
 async def send_initial_conversation_item(openai_ws):
     """Send initial conversation item if AI talks first."""
@@ -353,8 +354,15 @@ def get_file_as_markdown(service, file_id):
     # Decode the content from bytes to string
     return markdown_content.getvalue().decode('utf-8')
 
-def send_webhook(from_phone, transcription):
-    print('sent webhook', from_phone, transcription)
+def send_webhook(from_phone, transcription, ai_generated_summary):
+    webhook_data = {
+        'Incoming phone number': from_phone,
+        'Transcript': transcription,
+        'AI generated summary': ai_generated_summary,
+        'Date time stamp': datetime.now().isoformat()
+    }
+    print('sent webhook', webhook_data)
+    requests.post(os.getenv('MAKE_URL'), json=webhook_data)
 
 if __name__ == "__main__":
     file_id = os.getenv('GOOGLE_FILE_ID')
