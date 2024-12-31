@@ -90,6 +90,7 @@ async def handle_media_stream(websocket: WebSocket, instructions=Depends(get_ins
             try:
                 async for message in websocket.iter_text():
                     data = json.loads(message)
+                    print('twilio message', data)
                     if data['event'] == 'media' and openai_ws.open:
                         latest_media_timestamp = int(data['media']['timestamp'])
                         audio_append = {
@@ -109,8 +110,6 @@ async def handle_media_stream(websocket: WebSocket, instructions=Depends(get_ins
                     elif data['event'] == 'stop':
                         print("Twilio 'stop' transcription", transcription)
                         await send_summary_item(openai_ws)
-                    else:
-                        print('other twilio message', data)
             except WebSocketDisconnect:
                 print("Client disconnected.")
                 if openai_ws.open:
