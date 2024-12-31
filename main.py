@@ -63,7 +63,6 @@ async def handle_incoming_call(request: Request):
     print('call FROM', phone_from)
     connect = Connect()
     stream = connect.stream(url=f'wss://{host}/media-stream')
-    stream.parameter(name="foo", value='bar')
     stream.parameter(name="From", value=phone_from)
     response.append(connect)
     return HTMLResponse(content=str(response), media_type="application/xml")
@@ -95,10 +94,11 @@ async def handle_media_stream(websocket: WebSocket, instructions=Depends(get_ins
         ai_generated_summary = ''
         twilio_disconnected = False
         awaiting_final_transcript = False
+        phone_from = None
 
         async def receive_from_twilio():
             """Receive audio data from Twilio and send it to the OpenAI Realtime API."""
-            nonlocal stream_sid, latest_media_timestamp, transcription, twilio_disconnected
+            nonlocal stream_sid, latest_media_timestamp, transcription, twilio_disconnected, phone_from
             try:
                 async for message in websocket.iter_text():
                     data = json.loads(message)
@@ -113,7 +113,6 @@ async def handle_media_stream(websocket: WebSocket, instructions=Depends(get_ins
                     elif data['event'] == 'start':
                         stream_sid = data['start']['streamSid']
                         parameters = data['start']['customParameters']
-                        foo = parameters.get("foo")
                         phone_from = parameters.get("From")
                         print(f"Incoming stream has started {stream_sid}, {parameters}")
                         response_start_timestamp_twilio = None
@@ -247,7 +246,7 @@ async def handle_media_stream(websocket: WebSocket, instructions=Depends(get_ins
         except Exception as e:
             print('Error from asyncio.gather', e)
 
-        send_webhook('some number', transcription, ai_generated_summary)
+        send_webhook(phone_from, transcription, ai_generated_summary)
 
 async def send_initial_conversation_item(openai_ws):
     """Send initial conversation item if AI talks first."""
