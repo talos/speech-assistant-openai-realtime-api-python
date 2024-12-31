@@ -212,7 +212,10 @@ async def handle_media_stream(websocket: WebSocket, instructions=Depends(get_ins
                 await connection.send_json(mark_event)
                 mark_queue.append('responsePart')
 
-        await asyncio.gather(receive_from_twilio(), send_to_twilio())
+        try:
+            await asyncio.gather(receive_from_twilio(), send_to_twilio())
+        except Exception as e:
+            print('Error from asyncio.gather', e)
 
 async def send_initial_conversation_item(openai_ws):
     """Send initial conversation item if AI talks first."""
