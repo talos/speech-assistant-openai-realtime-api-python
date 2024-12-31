@@ -56,7 +56,8 @@ async def handle_incoming_call(request: Request):
     # <Say> punctuation to improve text-to-speech flow
     response.say("O.K.")
     host = request.url.hostname
-    print('handle_incoming_call form', request.form())
+    print('handle_incoming_call params', request.query_params)
+    print('call FROM', request.query_params['From'])
     connect = Connect()
     connect.stream(url=f'wss://{host}/media-stream')
     response.append(connect)
@@ -112,7 +113,9 @@ async def handle_media_stream(websocket: WebSocket, instructions=Depends(get_ins
                             mark_queue.pop(0)
                     elif data['event'] == 'stop':
                         print("Twilio 'stop' transcription", transcription)
-                        #await send_summary_item(openai_ws)
+                        twilio_disconnected = True
+                        await send_summary_item(openai_ws)
+                        awaiting_final_transcript = True
             except WebSocketDisconnect:
                 print("Client disconnected.")
                 #await send_summary_item(openai_ws)
@@ -176,6 +179,7 @@ async def handle_media_stream(websocket: WebSocket, instructions=Depends(get_ins
 
                     if response.get('type') == 'response.done' and twilio_disconnected and awaiting_final_transcript:
                         print('response done and twilio disconnected and awaiting final transcript', response)
+                        print('AI generated summary', response.get('response').get('output')[0].get('content')[0]['text'])
                         await openai_ws.close()
 
                     # if response.get('type') == 'response.done' and response.get('response')['object'] == 'realtime.response' and response.get('response')['status'] == 'cancelled':
