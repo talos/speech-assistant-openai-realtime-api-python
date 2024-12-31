@@ -113,7 +113,7 @@ async def handle_media_stream(websocket: WebSocket, instructions=Depends(get_ins
                         await openai_ws.send(json.dumps(audio_append))
                     elif data['event'] == 'start':
                         stream_sid = data['start']['streamSid']
-                        parameters = data.get("parameters", {})
+                        parameters = data.get("customParameters", {})
                         foo = parameters.get("foo")
                         phone_from = parameters.get("From")
                         print(f"Incoming stream has started {stream_sid}, {parameters}")
