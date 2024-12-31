@@ -12,6 +12,7 @@ from googleapiclient.discovery import build
 from google.oauth2.service_account import Credentials
 import io
 from googleapiclient.http import MediaIoBaseDownload
+import requests
 
 load_dotenv()
 
@@ -57,9 +58,10 @@ async def handle_incoming_call(request: Request):
     response.say("O.K.")
     host = request.url.hostname
     print('handle_incoming_call params', request.query_params)
-    print('call FROM', request.query_params['From'])
+    phone_from = request.query_params['From']
+    print('call FROM', phone_from)
     connect = Connect()
-    connect.stream(url=f'wss://{host}/media-stream')
+    connect.stream(url=f'wss://{host}/media-stream?foo=bar&From={phone_from}')
     response.append(connect)
     return HTMLResponse(content=str(response), media_type="application/xml")
 
@@ -68,6 +70,8 @@ async def handle_media_stream(websocket: WebSocket, instructions=Depends(get_ins
     """Handle WebSocket connections between Twilio and OpenAI."""
     print("Client connected")
     await websocket.accept()
+
+    print('webocket.query_params', webocket.query_params)
 
     async with websockets.connect(
         'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17',
@@ -336,6 +340,9 @@ def get_file_as_markdown(service, file_id):
 
     # Decode the content from bytes to string
     return markdown_content.getvalue().decode('utf-8')
+
+def send_webhook():
+    pass
 
 if __name__ == "__main__":
     file_id = os.getenv('GOOGLE_FILE_ID')
