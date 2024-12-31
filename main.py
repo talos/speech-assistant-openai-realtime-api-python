@@ -61,7 +61,11 @@ async def handle_incoming_call(request: Request):
     phone_from = request.query_params['From']
     print('call FROM', phone_from)
     connect = Connect()
-    connect.stream(url=f'wss://{host}/media-stream?foo=bar&From={phone_from}')
+    connect.stream(url=f'wss://{host}/media-stream',
+                   parameter1_name="foo",
+                   parameter1_value="bar",
+                   parameter2_name="From",
+                   parameter2_value=phone_from)
     response.append(connect)
     return HTMLResponse(content=str(response), media_type="application/xml")
 
@@ -72,8 +76,6 @@ async def handle_media_stream(websocket: WebSocket, instructions=Depends(get_ins
     await websocket.accept()
 
     print(f'websocket.query_params {websocket.query_params}')
-    print(f'websocket.query_params foo',  websocket.query_params['foo'])
-    print(f'websocket.query_params From',  websocket.query_params['From'])
 
     async with websockets.connect(
         'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17',
@@ -111,7 +113,10 @@ async def handle_media_stream(websocket: WebSocket, instructions=Depends(get_ins
                         await openai_ws.send(json.dumps(audio_append))
                     elif data['event'] == 'start':
                         stream_sid = data['start']['streamSid']
-                        print(f"Incoming stream has started {stream_sid}")
+                        parameters = data.get("parameters", {})
+                        foo = parameters.get("foo")
+                        phone_from = parameters.get("From")
+                        print(f"Incoming stream has started {stream_sid}, {parameters}")
                         response_start_timestamp_twilio = None
                         latest_media_timestamp = 0
                         last_assistant_item = None
