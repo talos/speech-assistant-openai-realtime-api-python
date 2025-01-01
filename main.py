@@ -72,8 +72,10 @@ async def handle_incoming_call(request: Request):
     return HTMLResponse(content=str(response), media_type="application/xml")
 
 @app.api_route("/recording-callback", methods=["GET", "POST"])
-async def handle_incoming_call(request: Request):
+async def handle_recording_callback(request: Request):
     """Handle recording"""
+    print('received handle_recording_callback')
+
     # Parse the form data sent by Twilio
     form_data = await request.form()
     recording_url = form_data.get("RecordingUrl")
@@ -88,8 +90,10 @@ async def handle_incoming_call(request: Request):
     return {"status": "received"}
 
 @app.api_route("/transcription-callback", methods=["GET", "POST"])
-async def handle_incoming_call(request: Request):
+async def handle_transcription_callback(request: Request):
     """Handle transcription"""
+    print('received handle_transcription_callback')
+
     # Parse the form data sent by Twilio
     form_data = await request.form()
     transcription_text = form_data.get("TranscriptionText")
