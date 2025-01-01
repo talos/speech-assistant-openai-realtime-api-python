@@ -6,7 +6,7 @@ import websockets
 from fastapi import FastAPI, WebSocket, Request, Depends
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.websockets import WebSocketDisconnect
-from twilio.twiml.voice_response import VoiceResponse, Connect, Say, Stream
+from twilio.twiml.voice_response import VoiceResponse, Connect, Say, Stream, Record
 from dotenv import load_dotenv
 from googleapiclient.discovery import build
 from google.oauth2.service_account import Credentials
@@ -65,8 +65,10 @@ async def handle_incoming_call(request: Request):
     response.append(connect)
     response.record(
         transcribe=True,
-        timeout=10,
-        recording_status_callback=f'https://{host}/recording-callback',
+        # timeout=10,
+        action=f'https://{host}/recording-callback',
+        # recording_status_callback=f'https://{host}/recording-callback',
+        # recording_status_callback_method='POST',
         transcribe_callback=f'https://{host}/transcription-callback',
     )
     return HTMLResponse(content=str(response), media_type="application/xml")
