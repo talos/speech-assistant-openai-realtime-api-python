@@ -107,24 +107,24 @@ async def handle_recording_callback(request: Request):
 
     return {"status": "received"}
 
-# @app.api_route("/transcription-callback", methods=["GET", "POST"])
-# async def handle_transcription_callback(request: Request):
-#     """Handle transcription"""
-#     print('received handle_transcription_callback')
-# 
-#     # Parse the form data sent by Twilio
-#     form_data = await request.form()
-#     transcription_text = form_data.get("TranscriptionText")
-#     transcription_status = form_data.get("TranscriptionStatus")
-#     recording_sid = form_data.get("RecordingSid")
-# 
-#     # Print the relevant info
-#     print(f"Trasncription form_data: {form_data}")
-#     print(f"Transcription Recording SID: {recording_sid}")
-#     print(f"Transcription Status: {transcription_status}")
-#     print(f"Transcription Text: {transcription_text}")
-# 
-#     return {"status": "received"}
+@app.api_route("/transcription-callback", methods=["GET", "POST"])
+async def handle_transcription_callback(request: Request):
+    """Handle transcription"""
+    print('received handle_transcription_callback')
+
+    # Parse the form data sent by Twilio
+    form_data = await request.form()
+    transcription_text = form_data.get("TranscriptionText")
+    transcription_status = form_data.get("TranscriptionStatus")
+    recording_sid = form_data.get("RecordingSid")
+
+    # Print the relevant info
+    print(f"Trasncription form_data: {form_data}")
+    print(f"Transcription Recording SID: {recording_sid}")
+    print(f"Transcription Status: {transcription_status}")
+    print(f"Transcription Text: {transcription_text}")
+
+    return {"status": "received"}
 
 @app.websocket("/media-stream")
 async def handle_media_stream(websocket: WebSocket, instructions=Depends(get_instructions)):
