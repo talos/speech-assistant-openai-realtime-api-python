@@ -64,9 +64,9 @@ async def handle_incoming_call(request: Request):
     stream.parameter(name="From", value=phone_from)
     response.append(connect)
     response.record(
-        transcribe=True,
-        # timeout=10,
         action=f'https://{host}/recording-callback',
+        # timeout=10,
+        transcribe=True,
         # recording_status_callback=f'https://{host}/recording-callback',
         # recording_status_callback_method='POST',
         transcribe_callback=f'https://{host}/transcription-callback',
@@ -85,6 +85,7 @@ async def handle_recording_callback(request: Request):
     recording_duration = form_data.get("RecordingDuration")
 
     # Print the relevant info
+    print(f"Recording form_data: {form_data}")
     print(f"Recording SID: {recording_sid}")
     print(f"Recording URL: {recording_url}")
     print(f"Recording Duration: {recording_duration} seconds")
@@ -103,6 +104,7 @@ async def handle_transcription_callback(request: Request):
     recording_sid = form_data.get("RecordingSid")
 
     # Print the relevant info
+    print(f"Trasncription form_data: {form_data}")
     print(f"Transcription Recording SID: {recording_sid}")
     print(f"Transcription Status: {transcription_status}")
     print(f"Transcription Text: {transcription_text}")
@@ -114,8 +116,6 @@ async def handle_media_stream(websocket: WebSocket, instructions=Depends(get_ins
     """Handle WebSocket connections between Twilio and OpenAI."""
     print("Client connected")
     await websocket.accept()
-
-    print(f'websocket.query_params {websocket.query_params}')
 
     async with websockets.connect(
         'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17',
