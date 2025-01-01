@@ -6,7 +6,8 @@ import websockets
 from fastapi import FastAPI, WebSocket, Request, Depends
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.websockets import WebSocketDisconnect
-from twilio.twiml.voice_response import VoiceResponse, Connect, Say, Stream, Record
+from twilio.rest import Client
+from twilio.twiml.voice_response import VoiceResponse, Connect, Say, Stream
 from dotenv import load_dotenv
 from googleapiclient.discovery import build
 from google.oauth2.service_account import Credentials
@@ -47,6 +48,19 @@ def get_instructions():
         raise ValueError("The SYSTEM_MESSAGE has not been initialized yet!")
     return SYSTEM_MESSAGE
 
+def initiate_recording(host, call_sid):
+    print(f'initiating recording host: {host}, call_sid: {call_sid}')
+
+    account_sid = os.environ["TWILIO_ACCOUNT_SID"]
+    auth_token = os.environ["TWILIO_AUTH_TOKEN"]
+    client = Client(account_sid, auth_token)
+
+    recording = client.calls(call_sid).recordings.create(
+        recording_status_callback=f'https://{host}/recording-callback'
+    )
+
+    print(f'initiated recording {recording}')
+
 @app.get("/", response_class=JSONResponse)
 async def index_page():
     return {"message": "Twilio Media Stream Server is running!"}
@@ -63,14 +77,15 @@ async def handle_incoming_call(request: Request):
     stream = connect.stream(url=f'wss://{host}/media-stream')
     stream.parameter(name="From", value=phone_from)
     response.append(connect)
-    response.record(
-        action=f'https://{host}/recording-callback',
-        # timeout=10,
-        transcribe=True,
-        # recording_status_callback=f'https://{host}/recording-callback',
-        # recording_status_callback_method='POST',
-        transcribe_callback=f'https://{host}/transcription-callback',
-    )
+    # response.record(
+    #     action=f'https://{host}/recording-callback',
+    #     # timeout=10,
+    #     transcribe=True,
+    #     # recording_status_callback=f'https://{host}/recording-callback',
+    #     # recording_status_callback_method='POST',
+    #     transcribe_callback=f'https://{host}/transcription-callback',
+    # )
+
     return HTMLResponse(content=str(response), media_type="application/xml")
 
 @app.api_route("/recording-callback", methods=["GET", "POST"])
@@ -92,24 +107,24 @@ async def handle_recording_callback(request: Request):
 
     return {"status": "received"}
 
-@app.api_route("/transcription-callback", methods=["GET", "POST"])
-async def handle_transcription_callback(request: Request):
-    """Handle transcription"""
-    print('received handle_transcription_callback')
-
-    # Parse the form data sent by Twilio
-    form_data = await request.form()
-    transcription_text = form_data.get("TranscriptionText")
-    transcription_status = form_data.get("TranscriptionStatus")
-    recording_sid = form_data.get("RecordingSid")
-
-    # Print the relevant info
-    print(f"Trasncription form_data: {form_data}")
-    print(f"Transcription Recording SID: {recording_sid}")
-    print(f"Transcription Status: {transcription_status}")
-    print(f"Transcription Text: {transcription_text}")
-
-    return {"status": "received"}
+# @app.api_route("/transcription-callback", methods=["GET", "POST"])
+# async def handle_transcription_callback(request: Request):
+#     """Handle transcription"""
+#     print('received handle_transcription_callback')
+# 
+#     # Parse the form data sent by Twilio
+#     form_data = await request.form()
+#     transcription_text = form_data.get("TranscriptionText")
+#     transcription_status = form_data.get("TranscriptionStatus")
+#     recording_sid = form_data.get("RecordingSid")
+# 
+#     # Print the relevant info
+#     print(f"Trasncription form_data: {form_data}")
+#     print(f"Transcription Recording SID: {recording_sid}")
+#     print(f"Transcription Status: {transcription_status}")
+#     print(f"Transcription Text: {transcription_text}")
+# 
+#     return {"status": "received"}
 
 @app.websocket("/media-stream")
 async def handle_media_stream(websocket: WebSocket, instructions=Depends(get_instructions)):
@@ -153,6 +168,7 @@ async def handle_media_stream(websocket: WebSocket, instructions=Depends(get_ins
                         }
                         await openai_ws.send(json.dumps(audio_append))
                     elif data['event'] == 'start':
+                        call_sid = data['start']['callSid']
                         stream_sid = data['start']['streamSid']
                         parameters = data['start']['customParameters']
                         phone_from = parameters.get("From")
@@ -160,6 +176,8 @@ async def handle_media_stream(websocket: WebSocket, instructions=Depends(get_ins
                         response_start_timestamp_twilio = None
                         latest_media_timestamp = 0
                         last_assistant_item = None
+
+                        initiate_recording(websocket.url.hostname, call_sid)
                     elif data['event'] == 'mark':
                         if mark_queue:
                             mark_queue.pop(0)
