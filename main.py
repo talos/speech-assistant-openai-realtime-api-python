@@ -58,14 +58,50 @@ async def handle_incoming_call(request: Request):
     # <Say> punctuation to improve text-to-speech flow
     response.say("O.K.")
     host = request.url.hostname
-    print('handle_incoming_call params', request.query_params)
     phone_from = request.query_params['From']
-    print('call FROM', phone_from)
     connect = Connect()
     stream = connect.stream(url=f'wss://{host}/media-stream')
     stream.parameter(name="From", value=phone_from)
     response.append(connect)
+    response.record(
+        transcribe=True,
+        timeout=10,
+        recording_status_callback=f'https://{host}/recording-callback',
+        transcribe_callback=f'https://{host}/transcription-callback',
+    )
     return HTMLResponse(content=str(response), media_type="application/xml")
+
+@app.api_route("/recording-callback", methods=["GET", "POST"])
+async def handle_incoming_call(request: Request):
+    """Handle recording"""
+    # Parse the form data sent by Twilio
+    form_data = await request.form()
+    recording_url = form_data.get("RecordingUrl")
+    recording_sid = form_data.get("RecordingSid")
+    recording_duration = form_data.get("RecordingDuration")
+
+    # Print the relevant info
+    print(f"Recording SID: {recording_sid}")
+    print(f"Recording URL: {recording_url}")
+    print(f"Recording Duration: {recording_duration} seconds")
+
+    return {"status": "received"}
+
+@app.api_route("/transcription-callback", methods=["GET", "POST"])
+async def handle_incoming_call(request: Request):
+    """Handle transcription"""
+    # Parse the form data sent by Twilio
+    form_data = await request.form()
+    transcription_text = form_data.get("TranscriptionText")
+    transcription_status = form_data.get("TranscriptionStatus")
+    recording_sid = form_data.get("RecordingSid")
+
+    # Print the relevant info
+    print(f"Transcription Recording SID: {recording_sid}")
+    print(f"Transcription Status: {transcription_status}")
+    print(f"Transcription Text: {transcription_text}")
+
+    return {"status": "received"}
 
 @app.websocket("/media-stream")
 async def handle_media_stream(websocket: WebSocket, instructions=Depends(get_instructions)):
