@@ -112,6 +112,19 @@ async def handle_transcription_callback(request: Request):
 
     return {"status": "received"}
 
+@app.api_route("/transcription-callback-deepgram", methods=["GET", "POST"])
+async def handle_transcription_callback_deepgram(request: Request):
+    """Handle transcription"""
+    print('received handle_transcription_callback_deepgram')
+
+    form_data = await request.form()
+    print(f'Deepgram Transcription form_data {form_data}')
+
+    body = await request.body()
+    print(f'Deepgram Transcription body {body}')
+
+    return {"status": "received"}
+
 @app.websocket("/media-stream")
 async def handle_media_stream(websocket: WebSocket, instructions=Depends(get_instructions)):
     """Handle WebSocket connections between Twilio and OpenAI."""
