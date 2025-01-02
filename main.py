@@ -87,15 +87,28 @@ async def handle_recording_callback(request: Request):
 
     # Parse the form data sent by Twilio
     form_data = await request.form()
+    call_sid = form_data.get("CallSid")
     recording_url = form_data.get("RecordingUrl")
     recording_sid = form_data.get("RecordingSid")
     recording_duration = form_data.get("RecordingDuration")
+    recording_start_time = form_data.get('RecordingStartTime')
 
     # Print the relevant info
     print(f"Recording form_data: {form_data}")
     print(f"Recording SID: {recording_sid}")
     print(f"Recording URL: {recording_url}")
+    print(f"Recording Call SID: {call_sid}")
     print(f"Recording Duration: {recording_duration} seconds")
+
+    webhook_data = {
+        'CallSid': call_sid,
+        'RecordingUrl': recording_url,
+        'RecordingSid': recording_sid,
+        'RecordingDuration': recording_duration,
+        'RecordingStartTime': recording_start_time,
+    }
+    print('sent recording webhook', webhook_data)
+    requests.post(os.getenv('MAKE_RECORDING_URL'), json=webhook_data)
 
     return {"status": "received"}
 
@@ -151,10 +164,11 @@ async def handle_media_stream(websocket: WebSocket, instructions=Depends(get_ins
         twilio_disconnected = False
         awaiting_final_transcript = False
         phone_from = None
+        call_sid = None
 
         async def receive_from_twilio():
             """Receive audio data from Twilio and send it to the OpenAI Realtime API."""
-            nonlocal stream_sid, latest_media_timestamp, transcription, twilio_disconnected, phone_from
+            nonlocal stream_sid, latest_media_timestamp, transcription, twilio_disconnected, phone_from, call_sid
             try:
                 async for message in websocket.iter_text():
                     data = json.loads(message)
@@ -305,7 +319,7 @@ async def handle_media_stream(websocket: WebSocket, instructions=Depends(get_ins
         except Exception as e:
             print('Error from asyncio.gather', e)
 
-        send_webhook(phone_from, transcription, ai_generated_summary)
+        send_webhook(phone_from, transcription, ai_generated_summary, call_sid)
 
 async def send_initial_conversation_item(openai_ws):
     """Send initial conversation item if AI talks first."""
@@ -410,14 +424,15 @@ def get_file_as_markdown(service, file_id):
     # Decode the content from bytes to string
     return markdown_content.getvalue().decode('utf-8')
 
-def send_webhook(from_phone, transcription, ai_generated_summary):
+def send_webhook(from_phone, transcription, ai_generated_summary, call_sid):
     webhook_data = {
         'Incoming phone number': from_phone,
         'Transcript': json.dumps(transcription),
         'AI generated summary': ai_generated_summary,
-        'Date time stamp': datetime.now().isoformat()
+        'Date time stamp': datetime.now().isoformat(),
+        'CallSid': call_sid,
     }
-    print('sent webhook', webhook_data)
+    print('sent main webhook', webhook_data)
     requests.post(os.getenv('MAKE_URL'), json=webhook_data)
 
 if __name__ == "__main__":
