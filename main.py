@@ -77,14 +77,6 @@ async def handle_incoming_call(request: Request):
     stream = connect.stream(url=f'wss://{host}/media-stream')
     stream.parameter(name="From", value=phone_from)
     response.append(connect)
-    # response.record(
-    #     action=f'https://{host}/recording-callback',
-    #     # timeout=10,
-    #     transcribe=True,
-    #     # recording_status_callback=f'https://{host}/recording-callback',
-    #     # recording_status_callback_method='POST',
-    #     transcribe_callback=f'https://{host}/transcription-callback',
-    # )
 
     return HTMLResponse(content=str(response), media_type="application/xml")
 
@@ -112,8 +104,13 @@ async def handle_transcription_callback(request: Request):
     """Handle transcription"""
     print('received handle_transcription_callback')
 
+    form_data = await request.form()
+    print(f'Transcription form_data {form_data}')
+
     body = await request.body()
     print(f'Transcription body {body}')
+
+    return {"status": "received"}
 
 @app.websocket("/media-stream")
 async def handle_media_stream(websocket: WebSocket, instructions=Depends(get_instructions)):
